@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: message-push-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: host.docker.internal  # 连接宿主机的 PostgreSQL
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres  # 请修改为您的密码
+      DB_NAME: message_push
+      SERVER_PORT: 8080
+    networks:
+      - message-push-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # 允许容器访问宿主机
+
+networks:
+  message-push-network:
+    driver: bridge
