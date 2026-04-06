@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"message-push-system/config"
 	"message-push-system/internal/handler"
@@ -47,7 +48,6 @@ func main() {
 	// 初始化 Push Worker
 	pushWorker := worker.NewPushWorker(smtpClient, messageRepo, memberRepo, logRepo, groupRepo)
 	pushWorker.Start()
-	defer pushWorker.Stop()
 
 	// 初始化 Handler
 	groupHandler := handler.NewGroupHandler(groupService)
@@ -116,4 +116,18 @@ func main() {
 	<-quit
 
 	log.Println("Shutting down server...")
+
+	// 等待 push worker 处理完当前任务，最多等待 30 秒
+	done := make(chan struct{})
+	go func() {
+		pushWorker.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Println("Push worker exited gracefully")
+	case <-time.After(30 * time.Second):
+		log.Println("Push worker shutdown timed out")
+	}
 }

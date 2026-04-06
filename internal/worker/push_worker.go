@@ -3,6 +3,7 @@ package worker
 import (
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"message-push-system/internal/model"
@@ -19,6 +20,7 @@ type PushWorker struct {
 	logRepo     repository.LogRepository
 	groupRepo   repository.GroupRepository
 	stopChan    chan struct{}
+	wg          sync.WaitGroup
 }
 
 // PushTask 推送任务
@@ -53,23 +55,46 @@ func (w *PushWorker) Start() {
 		for {
 			select {
 			case task := <-w.taskChan:
-				w.process(task)
+				w.wg.Add(1)
+				go func(t *PushTask) {
+					defer w.wg.Done()
+					w.process(t)
+				}(task)
 			case <-w.stopChan:
-				log.Println("Push worker stopped")
-				return
+				log.Println("Push worker stopping, draining remaining tasks...")
+				// 消费 channel 中剩余的任务
+				for {
+					select {
+					case task := <-w.taskChan:
+						w.wg.Add(1)
+						go func(t *PushTask) {
+							defer w.wg.Done()
+							w.process(t)
+						}(task)
+					default:
+						w.wg.Wait()
+						log.Println("Push worker stopped")
+						return
+					}
+				}
 			}
 		}
 	}()
 }
 
-// Stop 停止工作器
+// Stop 停止工作器，等待所有任务完成
 func (w *PushWorker) Stop() {
 	close(w.stopChan)
+	w.wg.Wait()
 }
 
 // Submit 提交推送任务
 func (w *PushWorker) Submit(task *PushTask) {
-	w.taskChan <- task
+	select {
+	case w.taskChan <- task:
+	case <-w.stopChan:
+		log.Printf("Push worker is stopping, task for message_id=%d dropped", task.MessageID)
+	}
 }
 
 // process 处理推送任务

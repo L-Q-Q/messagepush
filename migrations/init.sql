@@ -31,7 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_members_email ON members(email);
 -- 创建 messages 表
 CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
-    group_id INTEGER NOT NULL REFERENCES groups(id),
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     subject VARCHAR(500) NOT NULL,
     body TEXT NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 -- 创建 push_logs 表
 CREATE TABLE IF NOT EXISTS push_logs (
     id SERIAL PRIMARY KEY,
-    message_id INTEGER NOT NULL REFERENCES messages(id),
+    message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     recipient VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
     error_message TEXT,
